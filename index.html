@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="//d3js.org/topojson.v1.min.js"></script>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script src="https://d3js.org/d3-geo.v1.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+  <meta charset="UTF-8">
+</head>
+<body style="background-color: #D3FDA6">
+    <h1>Singapore Districts Population</h1>   
+    <div id="tooltip" class="hidden">
+        <p><span id="value"></p>
+    </div>
+<svg></svg>
+
+
+<script>
+
+var margin = {top: 10, right: 10, bottom: 10, left: 10},
+		padding = {top: 10, right: 10, bottom: 10, left: 10},
+		vizWidth = 900,
+		vizHeight = 500,
+		plotWidth = vizWidth - margin.left - margin.right,
+		plotHeight = vizHeight - margin.top - margin.bottom,
+		panelWidth = plotWidth - padding.left - padding.right,
+		panelHeight = plotHeight - padding.top - padding.bottom;
+
+
+let svg = d3.select("svg")
+    .attr("viewBox", "0 0 800 580")
+    .attr("preserveAspectRatio", "xMidYMid meet")
+	.attr("width", 1300)
+	.attr("height", 580)
+
+var legend_labels = ["< 100", ">100", ">500", ">3000", ">5000", ">10000", ">30000"]              
+var colorDomain = [100, 500, 3000, 5000, 10000, 30000]
+var colorArray = ["#cadef2", "#b6d1ed", "#F4F6F7", "#5DADE2", "#AEB6BF", "#34495E",  "#1C2833"]
+var colorLevel = d3.scaleThreshold()
+    .domain(colorDomain)
+    .range(colorArray);
+
+
+var div = d3.select("body").append("div")   
+	.attr("class", "tooltip")               
+	.style("opacity", 0);
+
+var viz = d3.select("body").append("svg")
+    		.attr("width", vizWidth)
+    		.attr("height", vizHeight);
+
+
+var plot = viz.append("g")
+		.attr("class","plot")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var panel = plot.append("g")
+		.attr("class","panel")
+    .attr("transform", "translate(" + padding.left + "," + padding.top + ")");
+
+
+//Important Functions
+function drawTooltip(d, p) {
+		console.log(d);
+		var xPosition = d3.event + 800;
+    var yPosition = d3.event + 400;
+
+    d3.select("#tooltip")
+			.classed("hidden",false)
+			.style("left", xPosition + "px")
+			.style("top", yPosition + "px")
+			.text(d.properties['Name'] + "____________**Population**: " + p);
+
+}
+
+function mouseout() {
+	d3.select("#tooltip").classed("hidden", true);
+	d3.select(this).classed("highlight",false)
+}
+
+let sgMap = new Map()
+
+// Load CSV and JSON data
+Promise.all([d3.json("https://raw.githubusercontent.com/areeveg/CSC3007-assignment3/main/SgArea.json"), 
+d3.csv("https://raw.githubusercontent.com/areeveg/CSC3007-assignment3/main/population2021.csv", function(d) {
+	sgMap.set(d['Subzone'].toLowerCase(), +d.Population)
+})]).then(data => { 
+
+
+// ----------------------------
+//Start of Choropleth drawing
+// ----------------------------
+
+var projection = d3.geoMercator().fitSize([panelWidth,panelHeight],data[0]),
+				geoPath = d3.geoPath(projection);
+
+svg.append("g")
+    .attr("id", "area")
+    .selectAll("path")
+    .data(data[0].features)
+    .enter()
+    .append("path")
+    .attr("d", geoPath)
+    .classed("area",true)
+    .attr("fill", function(d) {
+
+    	d.total = sgMap.get(d.properties.Name.toLowerCase()) || 0;
+      return colorLevel(d.total);
+    })
+    .style("opacity", 0.8)
+    .attr("transform",
+        "translate(" + margin.left + "," + margin.top + ")")
+
+  //Adding Mouse transition 
+  .on("mouseover", function(event, d) {
+  	var population = "";
+  	if (d.total == 0 ){
+  		population = "-";
+  	} else {
+  		population = d.total; 
+  	}
+    d3.select(this).classed("highlight",true);
+    drawTooltip(d, population, event);
+  })
+  .on('mouseout',mouseout);
+
+
+
+//Legend
+  var colorDomain2 = [0, 100, 500, 3000, 5000, 10000, 30000]
+  var legend = svg.selectAll("g.legend")
+  .data(colorDomain2)
+  .enter().append("g")
+  .attr("class", "legend");
+
+  legend.append("rect")
+  .text("Population Legend")
+  .attr("x", -80)
+  .attr("y", function(d, i){ return (i*30) - 2*30;})
+  .attr("width", 20)
+  .attr("height", 30)
+  .style("fill", function(d, i) { 
+
+  	return colorLevel(d); })
+  .style("opacity", 0.8);
+
+  legend.append("text")
+  .attr("x", -30)
+  .attr("y", function(d, i){ return (i*30) - 30;})
+  .text("Population")
+  .text(function(d, i){ ;
+  	return legend_labels[i]; });
+
+})
+
+</script>
+
+</body>
+</html>
